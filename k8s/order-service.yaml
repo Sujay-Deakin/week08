@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: order-service-container
-        image: week008acr.azurecr.io/order_service:latest
+        image: acrc9.azurecr.io/order_service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8000

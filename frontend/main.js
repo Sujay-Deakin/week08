@@ -1,11 +1,16 @@
 // week08/frontend/main.js
 
 document.addEventListener('DOMContentLoaded', () => {
+    const PRODUCT_API_BASE_URL = (window.RUNTIME_ENV && window.RUNTIME_ENV.PRODUCT_SERVICE_URL) 
+        || 'http://product-service-w08e1:8000';
+    const ORDER_API_BASE_URL = (window.RUNTIME_ENV && window.RUNTIME_ENV.ORDER_SERVICE_URL) 
+        || 'http://order-service-w08e1:8001';
     // API endpoints for the Product and Order services.
     // These ports (30000 for Product, 30001 for Order) are mapped
     // from the Docker containers to the host machine in docker-compose.yml for Example 2.
-    const PRODUCT_API_BASE_URL = '20.227.68.11';
-    const ORDER_API_BASE_URL = '4.254.88.66';
+    // const PRODUCT_API_BASE_URL = '20.227.68.11';
+    // const ORDER_API_BASE_URL = '4.254.88.66';
+    
 
     // Product Service is named 'product-service-w04e2' and exposes port 8000 internally.
     //const PRODUCT_API_BASE_URL = 'http://product-service-w04e2:8000';

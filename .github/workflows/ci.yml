@@ -1,0 +1,53 @@
+name: CI – Build & Push (backend + frontend)
+
+on:
+  push:
+    branches: [ dev, main ]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'k8s/**'
+      - '.github/workflows/**'
+  pull_request:
+    branches: [ dev, main ]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Your repo uses AZURE_CONTAINER_REGISTRY as the LOGIN SERVER (e.g., wk8acr.azurecr.io)
+  ACR_LOGIN_SERVER: ${{ secrets.AZURE_CONTAINER_REGISTRY }}
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [ product_service, order_service, frontend ]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (SP secret)
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # Use docker-login action which accepts login-server (FQDN) directly.
+      - name: Docker login to ACR
+        uses: azure/docker-login@v2
+        with:
+          login-server: ${{ env.ACR_LOGIN_SERVER }}
+
+      - name: Build & push ${{ matrix.service }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.service == 'frontend' && 'frontend' || format('backend/{0}', matrix.service) }}
+          push: true
+          tags: |
+            ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:${{ env.IMAGE_TAG }}
+            ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -18,10 +18,32 @@ spec:
     spec:
       containers:
       - name: frontend-container
-        image: week008acr.azurecr.io/frontend:latest
+        image: acrc9.azurecr.io/frontend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 80
+        env:
+        - name: PRODUCT_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: ecomm-config-w08e1     # <-- existing ConfigMap name
+              key: PRODUCT_SERVICE_URL     # <-- expects this key
+        - name: ORDER_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: ecomm-config-w08e1
+              key: ORDER_SERVICE_URL
+
+        command: ["/bin/sh","-c"]
+        args:
+          - |
+            cat >/usr/share/nginx/html/env.js <<EOF
+            window.RUNTIME_ENV = {
+              PRODUCT_SERVICE_URL: "${PRODUCT_SERVICE_URL}",
+              ORDER_SERVICE_URL: "${ORDER_SERVICE_URL}"
+            };
+            EOF
+            exec nginx -g 'daemon off;'
 ---
 apiVersion: v1
 kind: Service

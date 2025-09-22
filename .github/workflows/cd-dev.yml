@@ -1,0 +1,22 @@
+name: CD – Dev
+
+on:
+  push:
+    branches: [ dev ]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'k8s/**'
+      - '.github/workflows/**'
+
+concurrency:
+  group: cd-dev
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: dev
+      namespace: w08-dev. 
+      image_tag: ${{ github.sha }}

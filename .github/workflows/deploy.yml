@@ -1,0 +1,63 @@
+name: Reusable – Deploy to AKS
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      namespace:
+        required: true
+        type: string
+      image_tag:
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Use your existing Service Principal secret (AZURE_CREDENTIALS)
+      - name: Azure login (SP secret)
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Set AKS context
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
+          cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
+
+      # Install yq so we can pin image tags in manifests
+      - name: Install yq
+        run: |
+          sudo curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+          yq --version
+
+      - name: Create namespace (idempotent)
+        run: |
+          kubectl create ns ${{ inputs.namespace }} --dry-run=client -o yaml | kubectl apply -f -
+
+      # Update image tags in manifests to the immutable git SHA tag
+      - name: Update image tags
+        run: |
+          set -e
+          yq -i '.spec.template.spec.containers[].image |= sub(":.*$"; ":${{ inputs.image_tag }}")' k8s/product-service.yaml
+          yq -i '.spec.template.spec.containers[].image |= sub(":.*$"; ":${{ inputs.image_tag }}")' k8s/order-service.yaml
+          yq -i '.spec.template.spec.containers[].image |= sub(":.*$"; ":${{ inputs.image_tag }}")' k8s/frontend.yaml
+
+      - name: Apply manifests
+        run: |
+          kubectl -n ${{ inputs.namespace }} apply -f k8s/
+
+      - name: Show rollout status
+        run: |
+          kubectl -n ${{ inputs.namespace }} rollout status deploy/product-service-w08e1 --timeout=120s || true
+          kubectl -n ${{ inputs.namespace }} rollout status deploy/order-service-w08e1 --timeout=120s || true
+          kubectl -n ${{ inputs.namespace }} rollout status deploy/frontend --timeout=120s || true
