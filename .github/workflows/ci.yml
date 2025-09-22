@@ -16,9 +16,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Your repo uses AZURE_CONTAINER_REGISTRY as the LOGIN SERVER (e.g., wk8acr.azurecr.io)
-  ACR_LOGIN_SERVER: ${{ secrets.AZURE_CONTAINER_REGISTRY }}
-  IMAGE_TAG: ${{ github.sha }}
+  ACR_LOGIN_SERVER: ${{ secrets.AZURE_CONTAINER_REGISTRY }}  # e.g., wk10acr.azurecr.io
+  IMAGE_TAG: ${{ github.sha }}-${{ github.run_id }}  # Dynamically tag images using Git SHA and Run ID
 
 jobs:
   build:
@@ -28,28 +27,38 @@ jobs:
         service: [ product_service, order_service, frontend ]
 
     steps:
+      # Checkout the repository
       - uses: actions/checkout@v4
 
-      - name: Azure login (SP secret)
+      # Azure login using Service Principal credentials from AZURE_CREDENTIALS
+      - name: Azure Login (SP secret)
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # Use docker-login action which accepts login-server (FQDN) directly.
+      # Login to Azure Container Registry (ACR) using Azure CLI (az acr login)
       - name: Docker login to ACR
-        uses: azure/docker-login@v2
-        with:
-          login-server: ${{ env.ACR_LOGIN_SERVER }}
-          username: ${{ secrets.AZURE_CREDENTIALS.clientId }}  # Use clientId from AZURE_CREDENTIALS
-          password: ${{ secrets.AZURE_CREDENTIALS.clientSecret }}  # Use clientSecret from AZURE_CREDENTIALS
+        run: |
+          az acr login --name ${{ secrets.AZURE_CONTAINER_REGISTRY }}  # Logs in to ACR using az cli
 
+      # Build and Push Docker images (for frontend and backend services)
       - name: Build & push ${{ matrix.service }}
-        uses: docker/build-push-action@v6
-        with:
-          context: ${{ matrix.service == 'frontend' && 'frontend' || format('backend/{0}', matrix.service) }}
-          push: true
-          tags: |
-            ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:${{ env.IMAGE_TAG }}
-            ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+        run: |
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:${{ env.IMAGE_TAG }} ./${{ matrix.service }}
+          docker push ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:${{ env.IMAGE_TAG }}
+          docker push ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:latest
+
+      # Cache Docker build layers for subsequent builds
+      - name: Docker Buildx Cache
+        run: |
+          docker buildx build \
+            --cache-from=type=gha \
+            --cache-to=type=gha,mode=max \
+            --push \
+            --tag ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:${{ env.IMAGE_TAG }} \
+            ./${{ matrix.service }}
+
+      # Optional: Logout from Azure for security
+      - name: Logout from Azure
+        run: az logout
+        if: always()  # Ensures logout even if the previous step fails
