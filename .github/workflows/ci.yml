@@ -39,14 +39,22 @@ jobs:
       # Login to Azure Container Registry (ACR) using Azure CLI (az acr login)
       - name: Docker login to ACR
         run: |
-          az acr login --name ${{ secrets.AZURE_CONTAINER_REGISTRY }}  # Logs in to ACR using az cli
+          az acr login --name ${{ secrets.AZURE_CONTAINER_REGISTRY }}
 
       # Build and Push Docker images (for frontend and backend services)
       - name: Build & push ${{ matrix.service }}
         run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:${{ env.IMAGE_TAG }} ./${{ matrix.service }}
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:${{ env.IMAGE_TAG }} ./backend/${{ matrix.service }}
           docker push ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:${{ env.IMAGE_TAG }}
           docker push ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:latest
+
+      # Special case for frontend: build from `frontend/` folder
+      - name: Build & push frontend image
+        if: matrix.service == 'frontend'
+        run: |
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/frontend:${{ env.IMAGE_TAG }} ./frontend
+          docker push ${{ env.ACR_LOGIN_SERVER }}/frontend:${{ env.IMAGE_TAG }}
+          docker push ${{ env.ACR_LOGIN_SERVER }}/frontend:latest
 
       # Cache Docker build layers for subsequent builds
       - name: Docker Buildx Cache
