@@ -39,12 +39,12 @@ jobs:
       # Login to Azure Container Registry (ACR) using Azure CLI (az acr login)
       - name: Docker login to ACR
         run: |
-          az acr login --name ${{ secrets.AZURE_CONTAINER_REGISTRY }}
+          az acr login --name ${{ secrets.AZURE_CONTAINER_REGISTRY }}  # Logs in to ACR using az cli
 
-      # Build and Push Docker images (for frontend and backend services)
+      # Build and Push Docker images for the frontend and backend services
       - name: Build & push ${{ matrix.service }}
         run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:${{ env.IMAGE_TAG }} ./backend/${{ matrix.service }}
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:${{ env.IMAGE_TAG }} ./backend/${{ matrix.service }}  # For backend services (order_service, product_service)
           docker push ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:${{ env.IMAGE_TAG }}
           docker push ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:latest
 
@@ -52,7 +52,7 @@ jobs:
       - name: Build & push frontend image
         if: matrix.service == 'frontend'
         run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/frontend:${{ env.IMAGE_TAG }} ./frontend
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/frontend:${{ env.IMAGE_TAG }} ./frontend  # For frontend
           docker push ${{ env.ACR_LOGIN_SERVER }}/frontend:${{ env.IMAGE_TAG }}
           docker push ${{ env.ACR_LOGIN_SERVER }}/frontend:latest
 
@@ -66,7 +66,7 @@ jobs:
             --tag ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:${{ env.IMAGE_TAG }} \
             ./${{ matrix.service }}
 
-      # Optional: Logout from Azure for security
+      # Optional: Logout from Azure for security purposes
       - name: Logout from Azure
         run: az logout
         if: always()  # Ensures logout even if the previous step fails
