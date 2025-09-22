@@ -37,12 +37,11 @@ jobs:
 
       # Use docker-login action which accepts login-server (FQDN) directly.
       - name: Docker login to ACR
-        uses: azure/docker-login@v1
+        uses: azure/docker-login@v2
         with:
-            creds: ${{ secrets.AZURE_CREDENTIALS }}
-          # login-server: ${{ env.ACR_LOGIN_SERVER }}
-          # username: ${{ secrets.AZURE_CREDENTIALS.clientId }}  # Use clientId from AZURE_CREDENTIALS
-          # password: ${{ secrets.AZURE_CREDENTIALS.clientSecret }}  # Use clientSecret from AZURE_CREDENTIALS
+          login-server: ${{ env.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.AZURE_CREDENTIALS.clientId }}  # Use clientId from AZURE_CREDENTIALS
+          password: ${{ secrets.AZURE_CREDENTIALS.clientSecret }}  # Use clientSecret from AZURE_CREDENTIALS
 
       - name: Build & push ${{ matrix.service }}
         uses: docker/build-push-action@v6
