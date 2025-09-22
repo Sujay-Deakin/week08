@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [ product_service, order_service, frontend ]
+        service: [ product_service, order_service, frontend ]  # Matrix for all services
 
     steps:
       # Checkout the repository
@@ -44,15 +44,18 @@ jobs:
       # Build and Push Docker images for the frontend and backend services
       - name: Build & push ${{ matrix.service }}
         run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:${{ env.IMAGE_TAG }} ./backend/${{ matrix.service }}  # For backend services (order_service, product_service)
-          docker push ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:${{ env.IMAGE_TAG }}
-          docker push ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:latest
+          # For backend services (order_service, product_service), build from backend folder
+          if [[ "${{ matrix.service }}" != "frontend" ]]; then
+            docker build -t ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:${{ env.IMAGE_TAG }} ./backend/${{ matrix.service }}
+            docker push ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:${{ env.IMAGE_TAG }}
+            docker push ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:latest
+          fi
 
       # Special case for frontend: build from `frontend/` folder
       - name: Build & push frontend image
         if: matrix.service == 'frontend'
         run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/frontend:${{ env.IMAGE_TAG }} ./frontend  # For frontend
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/frontend:${{ env.IMAGE_TAG }} ./frontend  # For frontend (frontend/ folder)
           docker push ${{ env.ACR_LOGIN_SERVER }}/frontend:${{ env.IMAGE_TAG }}
           docker push ${{ env.ACR_LOGIN_SERVER }}/frontend:latest
 
