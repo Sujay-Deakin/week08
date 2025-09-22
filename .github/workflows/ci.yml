@@ -75,4 +75,3 @@ jobs:
       - name: Logout from Azure
         run: az logout
         if: always()  # Ensures logout even if the previous step fails
- 
