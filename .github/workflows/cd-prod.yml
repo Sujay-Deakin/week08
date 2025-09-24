@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   deploy:
-    uses: ./.github/workflows/reusable/deploy.yml
+    uses: ./.github/workflows/deploy.yml
     with:
       environment: production
       namespace: w08-prod
