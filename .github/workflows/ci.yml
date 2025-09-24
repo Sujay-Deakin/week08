@@ -16,62 +16,62 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  ACR_LOGIN_SERVER: ${{ secrets.AZURE_CONTAINER_REGISTRY }}  # e.g., wk10acr.azurecr.io
-  IMAGE_TAG: ${{ github.sha }}-${{ github.run_id }}  # Dynamically tag images using Git SHA and Run ID
+  ACR_LOGIN_SERVER: ${{ secrets.AZURE_CONTAINER_REGISTRY }}
+  IMAGE_TAG: ${{ github.sha }}-${{ github.run_id }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [ product_service, order_service, frontend ]  # Matrix for all services
+        service: [ product_service, order_service, frontend ]
 
     steps:
-      # Checkout the repository
+      # 1️⃣ Checkout repo
       - uses: actions/checkout@v4
 
-      # Azure login using Service Principal credentials from AZURE_CREDENTIALS
+      # 2️⃣ Azure login
       - name: Azure Login (SP secret)
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # Login to Azure Container Registry (ACR) using Azure CLI (az acr login)
+      # 3️⃣ ACR login
       - name: Docker login to ACR
         run: |
-          az acr login --name ${{ secrets.AZURE_CONTAINER_REGISTRY }}  # Logs in to ACR using az cli
+          az acr login --name ${{ secrets.AZURE_CONTAINER_REGISTRY }}
 
-      # Build and Push Docker images for the frontend and backend services
-      - name: Build & push ${{ matrix.service }}
+      # 4️⃣ Debug paths (optional, helpful if things fail again)
+      - name: Debug paths
         run: |
-          # For backend services (order_service, product_service), build from backend folder
-          if [[ "${{ matrix.service }}" == "order_service" || "${{ matrix.service }}" == "product_service" ]]; then
-            docker build -t ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:${{ env.IMAGE_TAG }} ./backend/${{ matrix.service }}  # Correct backend service context
-            docker push ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:${{ env.IMAGE_TAG }}
-            docker tag ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:${{ env.IMAGE_TAG }} ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:latest
-            docker push ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:latest
-          fi
+          pwd
+          ls -R
 
-      # Special case for frontend: build from `frontend/` folder
-      - name: Build & push frontend image
-        if: matrix.service == 'frontend'
-        run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/frontend:${{ env.IMAGE_TAG }} ./frontend  # For frontend (frontend/ folder)
-          docker push ${{ env.ACR_LOGIN_SERVER }}/frontend:${{ env.IMAGE_TAG }}
-          docker tag ${{ env.ACR_LOGIN_SERVER }}/frontend:${{ env.IMAGE_TAG }} ${{ env.ACR_LOGIN_SERVER }}/frontend:latest
-          docker push ${{ env.ACR_LOGIN_SERVER }}/frontend:latest
-
-      # Cache Docker build layers for subsequent builds
-      - name: Docker Buildx Cache
+      # 5️⃣ Build & Push Backend Services
+      - name: Build & Push backend image (${{ matrix.service }})
+        if: matrix.service == 'order_service' || matrix.service == 'product_service'
         run: |
           docker buildx build \
             --cache-from=type=gha \
             --cache-to=type=gha,mode=max \
             --push \
             --tag ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:${{ env.IMAGE_TAG }} \
-            ./${{ matrix.service }}
+            --tag ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:latest \
+            ./backend/${{ matrix.service }}
 
-      # Optional: Logout from Azure for security purposes
+      # 6️⃣ Build & Push Frontend
+      - name: Build & Push frontend image
+        if: matrix.service == 'frontend'
+        run: |
+          docker buildx build \
+            --cache-from=type=gha \
+            --cache-to=type=gha,mode=max \
+            --push \
+            --tag ${{ env.ACR_LOGIN_SERVER }}/frontend:${{ env.IMAGE_TAG }} \
+            --tag ${{ env.ACR_LOGIN_SERVER }}/frontend:latest \
+            ./frontend
+
+      # 7️⃣ Logout for security
       - name: Logout from Azure
         run: az logout
-        if: always()  # Ensures logout even if the previous step fails
+        if: always()
