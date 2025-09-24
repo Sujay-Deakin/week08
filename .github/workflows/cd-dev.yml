@@ -1,10 +1,9 @@
-# .github/workflows/cd-dev.yml
 name: CD – Dev
 
 on:
   push:
     branches: [ dev ]
-  workflow_dispatch: {}            # <<< manual run button
+  workflow_dispatch: {}
 
 concurrency:
   group: cd-dev
@@ -12,7 +11,7 @@ concurrency:
 
 jobs:
   deploy:
-    uses: ./.github/workflows/deploy.yml
+    uses: ./.github/workflows/reusable/deploy.yml
     with:
       environment: dev
       namespace: w08-dev
