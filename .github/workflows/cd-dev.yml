@@ -1,13 +1,10 @@
+# .github/workflows/cd-dev.yml
 name: CD – Dev
 
 on:
   push:
     branches: [ dev ]
-    paths:
-      - 'backend/**'
-      - 'frontend/**'
-      - 'k8s/**'
-      - '.github/workflows/**'
+  workflow_dispatch: {}            # <<< manual run button
 
 concurrency:
   group: cd-dev
@@ -20,4 +17,4 @@ jobs:
       environment: dev
       namespace: w08-dev
       image_tag: ${{ github.sha }}
-    secrets: inherit   # <<< THIS passes repo/env secrets to deploy.yml
+    secrets: inherit

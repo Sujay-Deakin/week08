@@ -1,3 +1,4 @@
+# .github/workflows/deploy.yml
 name: Reusable – Deploy to AKS
 
 on:
@@ -15,58 +16,43 @@ on:
 
 jobs:
   deploy:
+    if: ${{ github.event_name == 'workflow_call' }}   # <<< add this line
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
-
     steps:
       - uses: actions/checkout@v4
-
       - name: Azure login (SP secret)
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-
       - name: Set AKS context
         uses: azure/aks-set-context@v3
         with:
           resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
           cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
-
       - name: Install yq
         run: |
           sudo curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o /usr/local/bin/yq
           sudo chmod +x /usr/local/bin/yq
           yq --version
-
       - name: Create namespace (idempotent)
         run: |
           kubectl create ns "${{ inputs.namespace }}" --dry-run=client -o yaml | kubectl apply -f -
-
-      # 🔧 Only retag images inside Deployments, never Services
       - name: Update image tags (Deployments only)
         run: |
           set -e
           yq -i 'select(.kind=="Deployment") | .spec.template.spec.containers[].image |= sub(":.*$"; ":${{ inputs.image_tag }}")' k8s/product-service.yaml
           yq -i 'select(.kind=="Deployment") | .spec.template.spec.containers[].image |= sub(":.*$"; ":${{ inputs.image_tag }}")' k8s/order-service.yaml
           yq -i 'select(.kind=="Deployment") | .spec.template.spec.containers[].image |= sub(":.*$"; ":${{ inputs.image_tag }}")' k8s/frontend.yaml
-
-      # 🛡️ Safety: strip any accidental spec.template from Services
       - name: Sanity: ensure Services have no spec.template
         run: |
           yq -i 'select(.kind=="Service") |= del(.spec.template)' k8s/*.yaml
-          # Fail the build if any Service still has spec.template
-          if yq 'select(.kind=="Service") | .spec | has("template")' k8s/*.yaml | grep -q true; then
-            echo "ERROR: Service still contains spec.template"; exit 1;
-          fi
-
+          yq 'select(.kind=="Service") | .spec | has("template")' k8s/*.yaml | grep -q true && { echo "ERROR: Service still contains spec.template"; exit 1; } || true
       - name: Apply manifests
         run: |
           kubectl -n "${{ inputs.namespace }}" apply -f k8s/
-
       - name: Show rollout status
         run: |
           kubectl -n "${{ inputs.namespace }}" rollout status deploy/product-service-w08e1 --timeout=120s || true
           kubectl -n "${{ inputs.namespace }}" rollout status deploy/order-service-w08e1 --timeout=120s || true
           kubectl -n "${{ inputs.namespace }}" rollout status deploy/frontend --timeout=120s || true
-
- 
