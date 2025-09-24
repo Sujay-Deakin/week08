@@ -15,8 +15,6 @@ on:
 
 jobs:
   deploy:
-    # extra guard to avoid accidental standalone runs
-    if: ${{ github.event_name == 'workflow_call' }}
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
 
