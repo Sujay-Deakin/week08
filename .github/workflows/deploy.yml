@@ -69,3 +69,4 @@ jobs:
           kubectl -n "${{ inputs.namespace }}" rollout status deploy/order-service-w08e1 --timeout=120s || true
           kubectl -n "${{ inputs.namespace }}" rollout status deploy/frontend --timeout=120s || true
 
+ 
