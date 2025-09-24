@@ -1,4 +1,4 @@
-name: Reusable – Deploy to AKS
+name: Reusable - Deploy to AKS
 
 on:
   workflow_call:
@@ -15,12 +15,14 @@ on:
 
 jobs:
   deploy:
-    if: ${{ github.event_name == 'workflow_call' }}  # guard against accidental standalone runs
+    # extra guard to avoid accidental standalone runs
+    if: ${{ github.event_name == 'workflow_call' }}
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Azure login (SP secret)
         uses: azure/login@v1
@@ -39,11 +41,10 @@ jobs:
           sudo chmod +x /usr/local/bin/yq
           yq --version
 
-      - name: Create namespace (idempotent)
+      - name: Create namespace
         run: |
           kubectl create ns "${{ inputs.namespace }}" --dry-run=client -o yaml | kubectl apply -f -
 
-      # Only retag images inside Deployments, never Services
       - name: Update image tags (Deployments only)
         run: |
           set -e
@@ -51,8 +52,7 @@ jobs:
           yq -i 'select(.kind=="Deployment") | .spec.template.spec.containers[].image |= sub(":.*$"; ":${{ inputs.image_tag }}")' k8s/order-service.yaml
           yq -i 'select(.kind=="Deployment") | .spec.template.spec.containers[].image |= sub(":.*$"; ":${{ inputs.image_tag }}")' k8s/frontend.yaml
 
-      # Safety: ensure Services never carry spec.template
-      - name: Sanity: ensure Services have no spec.template
+      - name: Sanity check Services
         run: |
           yq -i 'select(.kind=="Service") |= del(.spec.template)' k8s/*.yaml
           if yq 'select(.kind=="Service") | .spec | has("template")' k8s/*.yaml | grep -q true; then
